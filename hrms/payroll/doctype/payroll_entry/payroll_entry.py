@@ -1675,17 +1675,24 @@ def submit_salary_slips_for_employees(payroll_entry, salary_slips, publish_progr
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
 def get_payroll_entries_for_jv(doctype, txt, searchfield, start, page_len, filters):
-	# nosemgrep: frappe-semgrep-rules.rules.frappe-using-db-sql
-	return frappe.db.sql(
-		f"""
-		select name from `tabPayroll Entry`
-		where `{searchfield}` LIKE %(txt)s
-		and name not in
-			(select reference_name from `tabJournal Entry Account`
-				where reference_type="Payroll Entry")
-		order by name limit %(start)s, %(page_len)s""",
-		{"txt": "%%%s%%" % txt, "start": start, "page_len": page_len},
+	PayrollEntry = frappe.qb.DocType("Payroll Entry")
+	JournalEntryAccount = frappe.qb.DocType("Journal Entry Account")
+
+	used_payroll_entries = (
+		frappe.qb.from_(JournalEntryAccount)
+		.select(JournalEntryAccount.reference_name)
+		.where(JournalEntryAccount.reference_type == "Payroll Entry")
 	)
+
+	return (
+		frappe.qb.from_(PayrollEntry)
+		.select(PayrollEntry.name)
+		.where(PayrollEntry[searchfield].like(f"%{txt}%"))
+		.where(PayrollEntry.name.notin(used_payroll_entries))
+		.orderby(PayrollEntry.name)
+		.limit(page_len)
+		.offset(start)
+	).run()
 
 
 def get_employee_list(
