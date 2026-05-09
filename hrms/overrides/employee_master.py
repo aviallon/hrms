@@ -135,7 +135,7 @@ def get_timeline_data(doctype, name):
 			"attendance_date": (">", year_ago),
 			"status": ("in", ["Present", "Half Day"]),
 		},
-		fields=["attendance_date", "count(*) as count"],
+		fields=["attendance_date", {"COUNT": "*", "as": "count"}],
 		group_by="attendance_date",
 	)
 	timeline_data = {
